@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Multi-Lane Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: #1a1a1b;
+            padding: 1rem;
+            border-bottom: 1px solid #343536;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            color: #ff4500;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .add-subreddit {
+            display: flex;
+            gap: 0.5rem;
+            max-width: 400px;
+        }
+
+        .add-subreddit input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #343536;
+            border-radius: 4px;
+            background: #272729;
+            color: #ffffff;
+            font-size: 0.9rem;
+        }
+
+        .add-subreddit input::placeholder {
+            color: #818384;
+        }
+
+        .add-subreddit button {
+            padding: 0.5rem 1rem;
+            background: #ff4500;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .add-subreddit button:hover {
+            background: #e03d00;
+        }
+
+        .add-subreddit button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .lanes-container {
+            display: flex;
+            overflow-x: auto;
+            padding: 1rem;
+            gap: 1rem;
+            min-height: calc(100vh - 120px);
+        }
+
+        .lane {
+            min-width: 350px;
+            max-width: 400px;
+            background: #1a1a1b;
+            border-radius: 8px;
+            border: 1px solid #343536;
+            display: flex;
+            flex-direction: column;
+            height: fit-content;
+            max-height: calc(100vh - 140px);
+        }
+
+        .lane-header {
+            padding: 1rem;
+            border-bottom: 1px solid #343536;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #272729;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .lane-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #ff4500;
+        }
+
+        .close-lane {
+            background: none;
+            border: none;
+            color: #818384;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .close-lane:hover {
+            background: #343536;
+            color: #ffffff;
+        }
+
+        .posts-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .post {
+            background: #272729;
+            border: 1px solid #343536;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            padding: 0.75rem;
+            transition: border-color 0.2s;
+        }
+
+        .post:hover {
+            border-color: #ff4500;
+        }
+
+        .post-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #d7dadc;
+            line-height: 1.4;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .post-title:hover {
+            color: #ff4500;
+        }
+
+        .post-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #818384;
+        }
+
+        .post-author {
+            color: #46d160;
+        }
+
+        .post-score {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .upvote-icon {
+            color: #ff4500;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #818384;
+        }
+
+        .error {
+            text-align: center;
+            padding: 1rem;
+            color: #ff6b6b;
+            background: #2d1b1b;
+            border: 1px solid #ff6b6b;
+            border-radius: 4px;
+            margin: 0.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #818384;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 0.5rem;
+            color: #d7dadc;
+        }
+
+        /* Scrollbar styling */
+        .posts-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .posts-container::-webkit-scrollbar-track {
+            background: #1a1a1b;
+        }
+
+        .posts-container::-webkit-scrollbar-thumb {
+            background: #343536;
+            border-radius: 3px;
+        }
+
+        .posts-container::-webkit-scrollbar-thumb:hover {
+            background: #4a4a4b;
+        }
+
+        .lanes-container::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .lanes-container::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        .lanes-container::-webkit-scrollbar-thumb {
+            background: #343536;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .lanes-container {
+                flex-direction: column;
+                overflow-x: visible;
+            }
+
+            .lane {
+                min-width: 100%;
+                max-width: 100%;
+            }
+
+            .add-subreddit {
+                flex-direction: column;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Reddit Multi-Lane Client</h1>
+        <div class="add-subreddit">
+            <input type="text" id="subredditInput" placeholder="Enter subreddit name (e.g., javascript, programming)" />
+            <button id="addLaneBtn">Add Lane</button>
+        </div>
+    </div>
+
+    <div class="lanes-container" id="lanesContainer">
+        <div class="empty-state">
+            <h3>Welcome to Reddit Multi-Lane Client</h3>
+            <p>Add your first subreddit lane to get started!</p>
+        </div>
+    </div>
+
+    <script>
+        class RedditClient {
+            constructor() {
+                this.lanesContainer = document.getElementById('lanesContainer');
+                this.subredditInput = document.getElementById('subredditInput');
+                this.addLaneBtn = document.getElementById('addLaneBtn');
+                this.lanes = new Map();
+                
+                this.initializeEventListeners();
+                this.loadDefaultSubreddits();
+            }
+
+            initializeEventListeners() {
+                this.addLaneBtn.addEventListener('click', () => this.addLane());
+                this.subredditInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.addLane();
+                    }
+                });
+            }
+
+            async loadDefaultSubreddits() {
+                const defaultSubs = ['javascript', 'programming', 'webdev'];
+                for (const sub of defaultSubs) {
+                    await this.addLane(sub);
+                }
+            }
+
+            async addLane(subredditName = null) {
+                const subreddit = subredditName || this.subredditInput.value.trim();
+                
+                if (!subreddit) {
+                    alert('Please enter a subreddit name');
+                    return;
+                }
+
+                // Clean subreddit name
+                const cleanSubreddit = subreddit.replace(/^r\//, '').toLowerCase();
+                
+                if (this.lanes.has(cleanSubreddit)) {
+                    alert('This subreddit is already added');
+                    return;
+                }
+
+                this.addLaneBtn.disabled = true;
+                this.addLaneBtn.textContent = 'Adding...';
+
+                try {
+                    // Remove empty state if it exists
+                    const emptyState = this.lanesContainer.querySelector('.empty-state');
+                    if (emptyState) {
+                        emptyState.remove();
+                    }
+
+                    const laneElement = this.createLaneElement(cleanSubreddit);
+                    this.lanesContainer.appendChild(laneElement);
+                    this.lanes.set(cleanSubreddit, laneElement);
+
+                    await this.loadSubredditPosts(cleanSubreddit);
+                    this.subredditInput.value = '';
+                } catch (error) {
+                    console.error('Error adding lane:', error);
+                    this.removeLane(cleanSubreddit);
+                    this.showError(laneElement, 'Failed to load subreddit. Please check the name and try again.');
+                } finally {
+                    this.addLaneBtn.disabled = false;
+                    this.addLaneBtn.textContent = 'Add Lane';
+                }
+            }
+
+            createLaneElement(subreddit) {
+                const lane = document.createElement('div');
+                lane.className = 'lane';
+                lane.innerHTML = `
+                    <div class="lane-header">
+                        <div class="lane-title">r/${subreddit}</div>
+                        <button class="close-lane" onclick="redditClient.removeLane('${subreddit}')">&times;</button>
+                    </div>
+                    <div class="posts-container">
+                        <div class="loading">Loading posts...</div>
+                    </div>
+                `;
+                return lane;
+            }
+
+            async loadSubredditPosts(subreddit) {
+                const laneElement = this.lanes.get(subreddit);
+                const postsContainer = laneElement.querySelector('.posts-container');
+
+                try {
+                    const response = await fetch(`https://www.reddit.com/r/${subreddit}.json?limit=25`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (!data.data || !data.data.children || data.data.children.length === 0) {
+                        throw new Error('No posts found');
+                    }
+
+                    this.renderPosts(postsContainer, data.data.children);
+                } catch (error) {
+                    console.error(`Error loading r/${subreddit}:`, error);
+                    this.showError(postsContainer, 'Failed to load posts from this subreddit.');
+                }
+            }
+
+            renderPosts(container, posts) {
+                container.innerHTML = '';
+                
+                posts.forEach(postData => {
+                    const post = postData.data;
+                    const postElement = this.createPostElement(post);
+                    container.appendChild(postElement);
+                });
+            }
+
+            createPostElement(post) {
+                const postDiv = document.createElement('div');
+                postDiv.className = 'post';
+                
+                const title = this.truncateText(post.title, 100);
+                const author = post.author;
+                const score = this.formatScore(post.score);
+                const url = `https://reddit.com${post.permalink}`;
+                const createdTime = this.formatTime(post.created_utc);
+
+                postDiv.innerHTML = `
+                    <a href="${url}" target="_blank" class="post-title">${title}</a>
+                    <div class="post-meta">
+                        <span>by <span class="post-author">u/${author}</span> • ${createdTime}</span>
+                        <span class="post-score">
+                            <span class="upvote-icon">▲</span>
+                            ${score}
+                        </span>
+                    </div>
+                `;
+
+                return postDiv;
+            }
+
+            removeLane(subreddit) {
+                const laneElement = this.lanes.get(subreddit);
+                if (laneElement) {
+                    laneElement.remove();
+                    this.lanes.delete(subreddit);
+                }
+
+                // Show empty state if no lanes left
+                if (this.lanes.size === 0) {
+                    this.lanesContainer.innerHTML = `
+                        <div class="empty-state">
+                            <h3>No subreddits loaded</h3>
+                            <p>Add a subreddit lane to get started!</p>
+                        </div>
+                    `;
+                }
+            }
+
+            showError(container, message) {
+                container.innerHTML = `<div class="error">${message}</div>`;
+            }
+
+            truncateText(text, maxLength) {
+                if (text.length <= maxLength) return text;
+                return text.substring(0, maxLength) + '...';
+            }
+
+            formatScore(score) {
+                if (score >= 1000) {
+                    return (score / 1000).toFixed(1) + 'k';
+                }
+                return score.toString();
+            }
+
+            formatTime(timestamp) {
+                const now = Date.now() / 1000;
+                const diff = now - timestamp;
+                
+                if (diff < 3600) {
+                    return Math.floor(diff / 60) + 'm ago';
+                } else if (diff < 86400) {
+                    return Math.floor(diff / 3600) + 'h ago';
+                } else {
+                    return Math.floor(diff / 86400) + 'd ago';
+                }
+            }
+        }
+
+        // Initialize the Reddit client when the page loads
+        let redditClient;
+        document.addEventListener('DOMContentLoaded', () => {
+            redditClient = new RedditClient();
+        });
+    </script>
+</body>
+</html>
